@@ -1,4 +1,4 @@
-import { DECKS, QUESTION_SECONDS, STREAK_BONUS, STREAK_LENGTH, type DeckId, type GameState, type PlayerView } from "@buzzline/shared";
+import { DECKS, QUESTION_SECONDS, REVEAL_SECONDS, STREAK_BONUS, STREAK_LENGTH, type DeckId, type GameState, type PlayerView } from "@buzzline/shared";
 import { useEffect, useRef, useState } from "react";
 import { choiceStyle, formatScore, joinUrl, ordinal } from "../lib/format";
 import {
@@ -9,6 +9,7 @@ import {
   Dots,
   Progress,
   RevealCountdown,
+  Setting,
   Stage,
   StreakBadge,
   TimerRing,
@@ -156,11 +157,14 @@ function Lobby({
             ))}
           </ul>
         )}
+        <Setting
+          label="Move on automatically"
+          description={`Show each answer for ${REVEAL_SECONDS} seconds, then start the next question by itself. You can still skip ahead.`}
+          checked={auto}
+          onChange={setAuto}
+        />
         <footer className="roster-foot">
           <span className="muted">{n === 0 ? "Need at least 1 player to start" : `${n} ready to play`}</span>
-          <label className="auto-toggle">
-            <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> Auto-advance
-          </label>
           <button className="btn btn-primary btn-xl" disabled={n === 0} onClick={() => onStart(auto)}>
             Start game <span aria-hidden="true">→</span>
           </button>
