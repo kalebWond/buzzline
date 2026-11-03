@@ -1,28 +1,12 @@
+import { STREAK_BONUS, STREAK_LENGTH, type GameState, type PlayerView } from "@buzzline/shared";
 import { useEffect, useRef, useState } from "react";
-import type { CSSProperties, FormEvent } from "react";
+import type { FormEvent } from "react";
+import { choiceStyle, formatScore, ordinal } from "../lib/format";
+import { Avatar, Brand, ChoiceLetter, ConnectionBanner, Dots, Stage, StreakBadge, TimerBar } from "../lib/ui";
 import { useGame } from "../lib/useGame";
-import { streakLabel } from "../lib/streakLabel";
 import { findMe, rankOf, screenFor } from "./screenFor";
 
-const COLORS = ["#e21b3c", "#1368ce", "#d89e00", "#26890c"];
 const STORE = "buzzline.player";
-
-const page: CSSProperties = {
-  minHeight: "100dvh",
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "center",
-  gap: 16,
-  padding: 20,
-  boxSizing: "border-box",
-  fontFamily: "system-ui, sans-serif",
-  textAlign: "center",
-  background: "#2d1b69",
-  color: "#fff",
-};
-const input: CSSProperties = { fontSize: 22, padding: 14, borderRadius: 8, border: 0, textAlign: "center" };
-const bigButton: CSSProperties = { fontSize: 22, padding: 16, borderRadius: 8, border: 0, background: "#26890c", color: "#fff" };
-const errStyle: CSSProperties = { color: "#ffb3b3", margin: 0 };
 
 function readSaved(): { code: string; playerId: string } | null {
   try {
@@ -32,8 +16,48 @@ function readSaved(): { code: string; playerId: string } | null {
   }
 }
 
+function forgetSaved() {
+  try {
+    sessionStorage.removeItem(STORE);
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+/** Leave this game for good and go back to an empty join form. */
+function leave() {
+  forgetSaved();
+  location.href = "/";
+}
+
+function TopBar({ me }: { me: PlayerView }) {
+  return (
+    <header className="p-top">
+      <span className="p-me">
+        <Avatar name={me.name} size="sm" />
+        <span className="p-me-name">{me.name}</span>
+      </span>
+      <span className="p-score">
+        <StreakBadge streak={me.streak} />
+        <b>{formatScore(me.score)}</b>
+      </span>
+    </header>
+  );
+}
+
+function QuestionMeta({ s }: { s: GameState }) {
+  return (
+    <div className="p-meta">
+      <span className="eyebrow">
+        Question {s.questionIndex + 1} of {s.questionCount}
+      </span>
+      <TimerBar deadline={s.deadline} />
+    </div>
+  );
+}
+
 export default function PlayerApp() {
-  const { ready, state, welcome, error, kicked, send } = useGame();
+  const { ready, status, state, welcome, error, kicked, send } = useGame();
   const playerId = welcome?.role === "player" ? welcome.playerId : null;
   const screen = screenFor(state, playerId);
   const me = findMe(state, playerId);
@@ -41,6 +65,8 @@ export default function PlayerApp() {
   const [code, setCode] = useState(() => (new URLSearchParams(location.search).get("code") ?? "").toUpperCase());
   const [name, setName] = useState("");
   const [choice, setChoice] = useState<number | null>(null);
+  const [rejoining, setRejoining] = useState(() => readSaved() !== null);
+  const [note, setNote] = useState<string | null>(null);
   const scoreBefore = useRef(0);
   const inQuestion = state?.phase === "question";
   const questionIndex = state?.questionIndex;
@@ -58,12 +84,7 @@ export default function PlayerApp() {
 
   // A kicked player must not try to come back after a reload.
   useEffect(() => {
-    if (!kicked) return;
-    try {
-      sessionStorage.removeItem(STORE);
-    } catch {
-      /* storage unavailable */
-    }
+    if (kicked) forgetSaved();
   }, [kicked]);
 
   // Take back our place after a page reload.
@@ -71,7 +92,18 @@ export default function PlayerApp() {
     if (!ready || welcome || kicked) return;
     const saved = readSaved();
     if (saved) send({ type: "player:rejoin", code: saved.code, playerId: saved.playerId });
+    else setRejoining(false);
   }, [ready, welcome, kicked, send]);
+
+  // A failed rejoin (game or player gone) falls back to the join form with a gentle note.
+  useEffect(() => {
+    if (!rejoining) return;
+    if (error) {
+      forgetSaved();
+      setNote("Your last game has ended. Join a new one below.");
+    }
+    if (error || welcome || status === "closed") setRejoining(false);
+  }, [rejoining, error, welcome, status]);
 
   // New question: forget the last choice and remember the score to show points gained.
   useEffect(() => {
@@ -84,98 +116,272 @@ export default function PlayerApp() {
 
   function join(e: FormEvent) {
     e.preventDefault();
+    setNote(null);
     send({ type: "player:join", code: code.trim(), name });
   }
 
   function answer(i: number) {
+    if (choice !== null) return;
     setChoice(i);
     send({ type: "player:answer", choice: i });
   }
 
+  const shell = (node: React.ReactNode, tone = "") => (
+    <div className={`app player ${tone}`}>
+      <ConnectionBanner status={kicked ? "open" : status} />
+      {node}
+    </div>
+  );
+
   if (kicked) {
-    return (
-      <div style={page}>
-        <h1>Removed from the game</h1>
-        <p>The host removed you from the game.</p>
-      </div>
+    return shell(
+      <Stage id="kicked" className="p-center">
+        <div className="big-icon" aria-hidden="true">
+          👋
+        </div>
+        <h1 className="display-sm">You were removed</h1>
+        <p className="lede">The host removed you from this game.</p>
+        <button className="btn btn-primary btn-block" onClick={leave}>
+          Join another game
+        </button>
+      </Stage>,
     );
   }
 
   if (screen === "join" || !state || !me) {
-    return (
-      <form style={page} onSubmit={join}>
-        <h1>Buzzline</h1>
-        <input style={input} placeholder="Game code" value={code} maxLength={4} autoCapitalize="characters"
-          onChange={(e) => setCode(e.target.value.toUpperCase())} />
-        <input style={input} placeholder="Your name" value={name} maxLength={20}
-          onChange={(e) => setName(e.target.value)} />
-        {error && <p role="alert" style={errStyle}>{error}</p>}
-        <button style={bigButton} disabled={!ready || !code.trim() || !name.trim()}>
-          {ready ? "Join" : "Connecting…"}
-        </button>
-      </form>
+    if (rejoining) {
+      return shell(
+        <Stage id="rejoin" className="p-center">
+          <Dots />
+          <p className="lede">Getting you back in the game</p>
+        </Stage>,
+      );
+    }
+    const canJoin = ready && code.trim().length > 0 && name.trim().length > 0;
+    return shell(
+      <Stage id="join" className="p-join">
+        <div className="p-join-hero">
+          <Brand size="lg" />
+          <p className="lede">Answer fast. Climb the board.</p>
+        </div>
+        <form className="join-form card" onSubmit={join}>
+          <label className="field">
+            <span className="field-label">Game code</span>
+            <input
+              className="input input-code"
+              placeholder="ABCD"
+              value={code}
+              maxLength={4}
+              autoCapitalize="characters"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              inputMode="text"
+              autoFocus={!code}
+              onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, ""))}
+            />
+          </label>
+          <label className="field">
+            <span className="field-label">Your name</span>
+            <input
+              className="input"
+              placeholder="e.g. Ada"
+              value={name}
+              maxLength={20}
+              autoComplete="nickname"
+              autoFocus={!!code}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </label>
+          {note ? (
+            <p role="status" className="form-note">
+              {note}
+            </p>
+          ) : (
+            error && (
+              <p role="alert" className="form-error">
+                {error}
+              </p>
+            )
+          )}
+          <button className="btn btn-primary btn-block btn-lg" disabled={!canJoin}>
+            {ready ? "Join game" : status === "closed" ? "Offline" : "Connecting…"}
+          </button>
+        </form>
+      </Stage>,
     );
   }
 
   if (screen === "waiting") {
-    return (
-      <div style={page}>
-        <h1>You're in, {me.name}!</h1>
-        <p>Waiting for the host to start… ({state.players.length} players)</p>
-      </div>
+    const others = state.players.filter((p) => p.id !== me.id);
+    return shell(
+      <Stage id="waiting" className="p-center p-waiting">
+        <div className="pulse-ring">
+          <Avatar name={me.name} size="xl" />
+        </div>
+        <h1 className="display-sm">You're in!</h1>
+        <p className="lede">
+          Look at the host's screen. The game starts soon <Dots />
+        </p>
+        <div className="code-pill">{state.code}</div>
+        {others.length > 0 && (
+          <div className="p-others">
+            <span className="muted">
+              {others.length} other {others.length === 1 ? "player" : "players"} here
+            </span>
+            <div className="p-others-list">
+              {others.slice(0, 12).map((p) => (
+                <span key={p.id} className="mini-chip">
+                  <Avatar name={p.name} size="sm" /> {p.name}
+                </span>
+              ))}
+              {others.length > 12 && <span className="mini-chip muted">+{others.length - 12}</span>}
+            </div>
+          </div>
+        )}
+      </Stage>,
     );
   }
 
   if (screen === "answer") {
-    return (
-      <div style={{ ...page, justifyContent: "flex-start" }}>
-        <p style={{ margin: 0 }}>Question {state.questionIndex + 1} of {state.questionCount}</p>
-        <h2 style={{ margin: 0 }}>{state.question?.text}</h2>
-        {error && <p role="alert" style={errStyle}>{error}</p>}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, flex: 1 }}>
+    return shell(
+      <Stage id={`a${state.questionIndex}`} className="p-answer">
+        <TopBar me={me} />
+        <QuestionMeta s={state} />
+        <h2 className="p-question">{state.question?.text}</h2>
+        {error && (
+          <p role="alert" className="form-error">
+            {error}
+          </p>
+        )}
+        <div className="p-tiles">
           {state.question?.choices.map((c, i) => (
-            <button key={i} onClick={() => answer(i)}
-              style={{ background: COLORS[i % 4], color: "#fff", border: 0, borderRadius: 8, fontSize: 20, padding: 12, minHeight: 100 }}>
-              {c}
+            <button
+              key={i}
+              className={`tile tile-btn ${choice === i ? "is-picked" : choice !== null ? "is-dim" : ""}`}
+              style={{ ...choiceStyle(i), animationDelay: `${i * 50}ms` }}
+              disabled={choice !== null}
+              onClick={() => answer(i)}
+            >
+              <ChoiceLetter index={i} />
+              <span className="tile-text">{c}</span>
             </button>
           ))}
         </div>
-      </div>
+      </Stage>,
     );
   }
 
   if (screen === "locked") {
     const picked = choice !== null ? state.question?.choices[choice] : null;
-    return (
-      <div style={page}>
-        <h1>Locked in!</h1>
-        {picked && choice !== null && (
-          <p style={{ background: COLORS[choice % 4], padding: 16, borderRadius: 8 }}>{picked}</p>
-        )}
-        <p>Waiting for the others…</p>
-      </div>
+    const answered = state.players.filter((p) => p.answered).length;
+    return shell(
+      <Stage id={`l${state.questionIndex}`} className="p-locked">
+        <TopBar me={me} />
+        <QuestionMeta s={state} />
+        <div className="p-center p-grow">
+          <span className="eyebrow">Locked in</span>
+          {picked != null && choice !== null ? (
+            <div className="tile tile-locked" style={choiceStyle(choice)}>
+              <ChoiceLetter index={choice} />
+              <span className="tile-text">{picked}</span>
+            </div>
+          ) : (
+            <div className="big-icon" aria-hidden="true">
+              🔒
+            </div>
+          )}
+          <p className="lede">
+            Waiting for the others <Dots />
+          </p>
+          <div className="meter" aria-label={`${answered} of ${state.players.length} answered`}>
+            <span style={{ width: `${(answered / Math.max(1, state.players.length)) * 100}%` }} />
+          </div>
+          <span className="muted">
+            {answered} of {state.players.length} answered
+          </span>
+        </div>
+      </Stage>,
     );
   }
 
   if (screen === "reveal") {
     const gained = me.score - scoreBefore.current;
     const correct = choice !== null ? choice === state.correctIndex : gained > 0;
-    return (
-      <div style={{ ...page, background: correct ? "#26890c" : "#c0392b" }}>
-        <h1>{correct ? "Correct!" : me.answered ? "Wrong" : "Too slow"}</h1>
-        {gained > 0 && <p>+{gained} points</p>}
-        <p style={{ fontSize: 28 }}>Score: {me.score}</p>
-        <p>Rank {rankOf(state, me.id)} of {state.players.length}</p>
-        {me.streak > 0 && <p>{streakLabel(me.streak)}</p>}
-      </div>
+    const bonus = correct && me.streak > 0 && me.streak % STREAK_LENGTH === 0;
+    const rank = rankOf(state, me.id);
+    const answerText = state.correctIndex !== null ? state.question?.choices[state.correctIndex] : null;
+    const tone = correct ? "tone-good" : me.answered ? "tone-bad" : "tone-slow";
+    return shell(
+      <Stage id={`r${state.questionIndex}`} className="p-center p-reveal">
+        <div className={`verdict-icon ${tone}`} aria-hidden="true">
+          {correct ? "✓" : me.answered ? "✕" : "⏱"}
+        </div>
+        <h1 className="display">{correct ? "Correct!" : me.answered ? "Not quite" : "Too slow"}</h1>
+        {correct ? (
+          <div className="gain-pill">+{formatScore(gained)}</div>
+        ) : (
+          answerText != null &&
+          state.correctIndex !== null && (
+            <div className="answer-was">
+              <span className="muted">The answer was</span>
+              <div className="tile tile-locked" style={choiceStyle(state.correctIndex)}>
+                <ChoiceLetter index={state.correctIndex} />
+                <span className="tile-text">{answerText}</span>
+              </div>
+            </div>
+          )
+        )}
+        {bonus && (
+          <div className="bonus">
+            <span aria-hidden="true">🔥</span> {me.streak} in a row! Includes +{STREAK_BONUS} streak bonus
+          </div>
+        )}
+        {!bonus && correct && me.streak > 1 && <StreakBadge streak={me.streak} className="streak-lg" />}
+        <div className="stat-row">
+          <div className="stat">
+            <span className="stat-label">Score</span>
+            <span className="stat-value">{formatScore(me.score)}</span>
+          </div>
+          <div className="stat">
+            <span className="stat-label">Rank</span>
+            <span className="stat-value">
+              {ordinal(rank)}
+              <span className="muted stat-of"> / {state.players.length}</span>
+            </span>
+          </div>
+        </div>
+      </Stage>,
+      tone,
     );
   }
 
-  return (
-    <div style={page}>
-      <h1>Game over</h1>
-      <p style={{ fontSize: 28 }}>Final score: {me.score}</p>
-      <p style={{ fontSize: 22 }}>Rank {rankOf(state, me.id)} of {state.players.length}</p>
-    </div>
+  const rank = rankOf(state, me.id);
+  const medal = ["🥇", "🥈", "🥉"][rank - 1];
+  return shell(
+    <Stage id="finished" className="p-center p-finished">
+      <span className="eyebrow">Game over</span>
+      {medal ? (
+        <div className="big-icon medal" aria-hidden="true">
+          {medal}
+        </div>
+      ) : (
+        <Avatar name={me.name} size="xl" />
+      )}
+      <h1 className="display">
+        {ordinal(rank)} <span className="muted display-of">of {state.players.length}</span>
+      </h1>
+      <p className="lede">{rank === 1 ? "You won. Take a bow!" : rank <= 3 ? "On the podium. Nice work!" : "Thanks for playing!"}</p>
+      <div className="stat-row">
+        <div className="stat">
+          <span className="stat-label">Final score</span>
+          <span className="stat-value">{formatScore(me.score)}</span>
+        </div>
+      </div>
+      <button className="btn btn-ghost btn-block" onClick={leave}>
+        Join another game
+      </button>
+    </Stage>,
+    rank <= 3 ? "tone-gold" : "",
   );
 }
