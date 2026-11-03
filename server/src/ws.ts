@@ -1,7 +1,7 @@
 import type http from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
-import type { ClientMessage, ServerMessage } from "@buzzline/shared";
-import { deck as defaultDeck, type DeckQuestion } from "./deck.js";
+import { DECKS, DEFAULT_DECK_ID, type ClientMessage, type DeckId, type ServerMessage } from "@buzzline/shared";
+import { decks as builtinDecks, type DeckQuestion } from "./deck.js";
 import { ERROR_ORDER, Game, systemClock, type Clock, type GameError } from "./game.js";
 
 interface Room {
@@ -31,7 +31,11 @@ function parse(raw: string): ClientMessage | null {
   if (typeof m !== "object" || m === null) return null;
   const o = m as Record<string, unknown>;
   switch (o.type) {
-    case "host:create":
+    case "host:create": {
+      if (o.deckId === undefined) return { type: "host:create" };
+      const id = DECKS.find((d) => d.id === o.deckId)?.id;
+      return id ? { type: "host:create", deckId: id } : null;
+    }
     case "host:start":
     case "host:next":
       return { type: o.type };
@@ -56,7 +60,8 @@ function parse(raw: string): ClientMessage | null {
 
 export function attachWebSocket(server: http.Server, opts: WsOptions = {}): WebSocketServer {
   const clock = opts.clock ?? systemClock;
-  const deck = opts.deck ?? defaultDeck;
+  const decks: Record<string, DeckQuestion[]> = { ...builtinDecks };
+  if (opts.deck) decks[DEFAULT_DECK_ID] = opts.deck;
   const wss = new WebSocketServer({ server, path: "/ws" });
   const rooms = new Map<string, Room>();
   const conns = new Map<WebSocket, Conn>();
@@ -101,10 +106,10 @@ export function attachWebSocket(server: http.Server, opts: WsOptions = {}): WebS
     prune(room);
   };
 
-  const createRoom = (): Room => {
+  const createRoom = (deckId: DeckId): Room => {
     const code = newCode();
     const room = { host: null, players: new Map() } as unknown as Room;
-    room.game = new Game(code, deck, clock, () => broadcast(room));
+    room.game = new Game(code, decks[deckId]!, clock, () => broadcast(room));
     rooms.set(code, room);
     return room;
   };
@@ -117,7 +122,7 @@ export function attachWebSocket(server: http.Server, opts: WsOptions = {}): WebS
     switch (msg.type) {
       case "host:create": {
         leave(ws);
-        const room = createRoom();
+        const room = createRoom(msg.deckId ?? DEFAULT_DECK_ID);
         room.host = ws;
         conns.set(ws, { room, role: "host", playerId: null });
         send(ws, { type: "welcome", role: "host", playerId: null, code: room.game.code });

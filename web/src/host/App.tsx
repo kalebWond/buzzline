@@ -1,4 +1,4 @@
-import type { GameState, PlayerView } from "@buzzline/shared";
+import { DECKS, type GameState, type PlayerView } from "@buzzline/shared";
 import { useEffect, useState } from "react";
 import { useGame } from "../lib/useGame";
 import { barPercents } from "./barHeights";
@@ -159,14 +159,31 @@ function Reveal({ s, onNext }: { s: GameState; onNext: () => void }) {
 export default function HostApp() {
   const { ready, state, error, send } = useGame();
 
-  useEffect(() => {
-    if (ready) send({ type: "host:create" });
-  }, [ready, send]);
+  const [created, setCreated] = useState(false);
 
   return (
     <div style={page}>
       {error && <div style={{ background: "#e21b3c", padding: 8, borderRadius: 8 }}>{error}</div>}
-      {!state && <h1 style={big}>{ready ? "Creating game…" : "Connecting…"}</h1>}
+      {!state && !created && (
+        <>
+          <h1 style={big}>{ready ? "Pick a deck" : "Connecting…"}</h1>
+          {ready &&
+            DECKS.map((d) => (
+              <div key={d.id}>
+                <button
+                  style={button}
+                  onClick={() => {
+                    setCreated(true);
+                    send({ type: "host:create", deckId: d.id });
+                  }}
+                >
+                  {d.name}
+                </button>
+              </div>
+            ))}
+        </>
+      )}
+      {!state && created && <h1 style={big}>Creating game…</h1>}
       {state?.phase === "lobby" && <Lobby s={state} onStart={() => send({ type: "host:start" })} onKick={(playerId) => send({ type: "host:kick", playerId })} />}
       {state?.phase === "question" && <Question s={state} />}
       {state?.phase === "reveal" && <Reveal s={state} onNext={() => send({ type: "host:next" })} />}
