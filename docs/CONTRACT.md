@@ -11,7 +11,7 @@ Players join at `/?code=ABCD`, where ABCD is the game code. The player screen fi
 | host:create   | deckId (optional) | anyone  | Always. Sender becomes host                               |
 | player:join   | code, name     | anyone  | Lobby                                                        |
 | player:rejoin | code, playerId | anyone  | Question, reveal or finished                                 |
-| host:start    |                | host    | Lobby, with at least 1 player                                |
+| host:start    | autoAdvance (optional) | host    | Lobby, with at least 1 player                        |
 | player:answer | choice         | player  | Question                                                     |
 | host:next     |                | host    | Reveal                                                       |
 | host:kick     | playerId       | host    | Lobby                                                        |
@@ -19,6 +19,8 @@ Players join at `/?code=ABCD`, where ABCD is the game code. The player screen fi
 `choice` is the zero-based index of the chosen answer.
 
 `deckId` is one of `"classic"`, `"science"` or `"geography"`. If it is left out, the game uses `"classic"`. Any other value is an `Invalid message`.
+
+`autoAdvance` is a boolean. If it is left out, it is `false`. Any other type is an `Invalid message`.
 
 `playerId` in host:kick is the id of a player in the host's game. If no such player exists, the server sends `Player not found`.
 
@@ -56,6 +58,8 @@ Players join at `/?code=ABCD`, where ABCD is the game code. The player screen fi
 | question      | `{ text: string, choices: string[] }`, or null | Null in lobby and finished |
 | deadline      | epoch milliseconds, or null         | Set only during question      |
 | correctIndex  | number or null                      | Set only during reveal        |
+| autoAdvance   | boolean                             | The value sent with host:start. `false` in the lobby and for every game started without it |
+| nextAt        | epoch milliseconds, or null         | Set only during a reveal of a game with autoAdvance. The moment the server moves on by itself |
 | answerCounts  | array of numbers, or null           | Set only during reveal. One count per choice, in choice order. Null in every other phase |
 
 ## Rules
@@ -74,6 +78,9 @@ Players join at `/?code=ABCD`, where ABCD is the game code. The player screen fi
 - `answerCounts[i]` is how many players chose choice `i` in the current question. Players who did not answer are not counted. Counts never reach a client before the reveal phase.
 - Second answers and late answers are ignored.
 - After the last question, host:next moves the game to finished.
+- If `autoAdvance` is true, a reveal lasts 5 seconds. When `nextAt` is reached the server does what host:next would do: it starts the next question, or moves to finished after the last one. The server owns this timer, so it does not depend on any client.
+- During an auto-advancing reveal, host:next still works and skips the rest of the pause. A question never advances twice: the pending timer is cancelled by host:next and when the game ends, including when the host disconnects.
+- If `autoAdvance` is false, nothing advances until host:next.
 - A player who disconnects in the lobby is removed. Later, they stay on the board.
 - After the lobby, a player can send player:rejoin with the code and their playerId to take back their place. If their old socket is still open, the server closes it and the new socket takes over.
 - If the host disconnects, the game moves to finished.

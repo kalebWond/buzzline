@@ -270,6 +270,47 @@ describe("a full game over sockets", () => {
   });
 });
 
+describe("auto-advance", () => {
+  it("rejects a non-boolean autoAdvance and stays in the lobby", async () => {
+    const { h, code } = await host();
+    await player(code, "Ann");
+    await h.until(() => h.state().players.length === 1);
+    expect(err(await h.call({ type: "host:start", autoAdvance: "yes" }))).toBe("Invalid message");
+    expect(h.state().phase).toBe("lobby");
+  });
+
+  it("is off when host:start leaves it out", async () => {
+    const { h, code } = await host();
+    const ann = await player(code, "Ann");
+    await h.call({ type: "host:start" });
+    await h.until(() => h.state().phase === "question");
+    expect(h.state().autoAdvance).toBe(false);
+    ann.c.send({ type: "player:answer", choice: deck[0]!.correctIndex });
+    await h.until(() => h.state().phase === "reveal");
+    expect(h.state().nextAt).toBeNull();
+    clock.advance(60_000);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(h.state().phase).toBe("reveal");
+  });
+
+  it("broadcasts nextAt, then moves on by itself and tells everyone", async () => {
+    const { h, code } = await host();
+    const ann = await player(code, "Ann");
+    await h.call({ type: "host:start", autoAdvance: true });
+    await h.until(() => h.state().phase === "question");
+    expect(h.state().autoAdvance).toBe(true);
+    ann.c.send({ type: "player:answer", choice: deck[0]!.correctIndex });
+    await h.until(() => h.state().phase === "reveal");
+    await ann.c.until(() => ann.c.state().phase === "reveal");
+    expect(h.state().nextAt).toBe(clock.now() + 5000);
+    expect(ann.c.state().nextAt).toBe(h.state().nextAt);
+    clock.advance(5000);
+    await h.until(() => h.state().phase === "question" && h.state().questionIndex === 1);
+    await ann.c.until(() => ann.c.state().phase === "question" && ann.c.state().questionIndex === 1);
+    expect(h.state().nextAt).toBeNull();
+  });
+});
+
 describe("rejoin and disconnect", () => {
   it("a player who drops after the lobby stays on the board and can rejoin", async () => {
     const { h, code } = await host();

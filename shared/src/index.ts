@@ -2,6 +2,9 @@ export const APP_NAME = "buzzline";
 
 export const QUESTION_SECONDS = 20;
 
+/** How long an auto-advancing reveal lasts. */
+export const REVEAL_SECONDS = 5;
+
 export type Phase = "lobby" | "question" | "reveal" | "finished";
 
 export interface PlayerView {
@@ -27,6 +30,8 @@ export interface GameState {
   deadline: number | null;
   correctIndex: number | null;
   answerCounts: number[] | null;
+  autoAdvance: boolean;
+  nextAt: number | null;
 }
 
 export const DECKS = [
@@ -46,7 +51,7 @@ export type ClientMessage =
   | { type: "host:create"; deckId?: DeckId }
   | { type: "player:join"; code: string; name: string }
   | { type: "player:rejoin"; code: string; playerId: string }
-  | { type: "host:start" }
+  | { type: "host:start"; autoAdvance?: boolean }
   | { type: "player:answer"; choice: number }
   | { type: "host:next" }
   | { type: "host:kick"; playerId: string };

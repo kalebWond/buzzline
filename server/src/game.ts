@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { QUESTION_SECONDS, STREAK_BONUS, STREAK_LENGTH, type GameState, type Phase, type PlayerView } from "@buzzline/shared";
+import { QUESTION_SECONDS, REVEAL_SECONDS, STREAK_BONUS, STREAK_LENGTH, type GameState, type Phase, type PlayerView } from "@buzzline/shared";
 import type { DeckQuestion } from "./deck.js";
 
 export interface Clock {
@@ -42,6 +42,7 @@ interface Player {
 }
 
 const QUESTION_MS = QUESTION_SECONDS * 1000;
+const REVEAL_MS = REVEAL_SECONDS * 1000;
 
 /**
  * Game rules only. No networking. `onChange` fires after a change caused by
@@ -53,6 +54,8 @@ export class Game {
   private players: Player[] = [];
   private questionIndex = 0;
   private deadline: number | null = null;
+  private autoAdvance = false;
+  private nextAt: number | null = null;
   private cancelTimer: (() => void) | null = null;
 
   constructor(
@@ -77,6 +80,8 @@ export class Game {
       deadline: this.phase === "question" ? this.deadline : null,
       correctIndex: this.phase === "reveal" && q ? q.correctIndex : null,
       answerCounts: this.phase === "reveal" && q ? this.countAnswers(q.choices.length) : null,
+      autoAdvance: this.autoAdvance,
+      nextAt: this.phase === "reveal" ? this.nextAt : null,
     };
   }
 
@@ -138,19 +143,23 @@ export class Game {
     if (this.phase === "finished") return;
     this.cancel();
     this.deadline = null;
+    this.nextAt = null;
     this.phase = "finished";
     this.onChange();
   }
 
-  start(): Result {
+  start(autoAdvance = false): Result {
     if (this.phase !== "lobby") return { ok: false, error: "Not allowed now" };
     if (this.players.length < 1) return { ok: false, error: "Need at least 1 player" };
+    this.autoAdvance = autoAdvance;
     this.beginQuestion(0);
     return { ok: true };
   }
 
   next(): Result {
     if (this.phase !== "reveal") return { ok: false, error: "Not allowed now" };
+    this.cancel(); // a skip must disarm the auto-advance timer
+    this.nextAt = null;
     if (this.questionIndex + 1 >= this.deck.length) {
       this.phase = "finished";
       this.onChange();
@@ -205,6 +214,10 @@ export class Game {
     }
     this.deadline = null;
     this.phase = "reveal";
+    if (this.autoAdvance) {
+      this.nextAt = this.clock.now() + REVEAL_MS;
+      this.cancelTimer = this.clock.setTimeout(() => this.next(), REVEAL_MS);
+    }
     this.onChange();
   }
 

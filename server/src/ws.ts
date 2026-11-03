@@ -37,6 +37,8 @@ function parse(raw: string): ClientMessage | null {
       return id ? { type: "host:create", deckId: id } : null;
     }
     case "host:start":
+      if (o.autoAdvance === undefined) return { type: "host:start" };
+      return typeof o.autoAdvance === "boolean" ? { type: "host:start", autoAdvance: o.autoAdvance } : null;
     case "host:next":
       return { type: o.type };
     case "host:kick":
@@ -164,7 +166,7 @@ export function attachWebSocket(server: http.Server, opts: WsOptions = {}): WebS
       case "host:start":
       case "host:next": {
         if (!conn || conn.role !== "host") return fail(ws, "Not allowed now");
-        const res = msg.type === "host:start" ? conn.room.game.start() : conn.room.game.next();
+        const res = msg.type === "host:start" ? conn.room.game.start(msg.autoAdvance ?? false) : conn.room.game.next();
         if (!res.ok) fail(ws, res.error);
         return;
       }
