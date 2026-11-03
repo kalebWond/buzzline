@@ -3,8 +3,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export type Welcome = Extract<ServerMessage, { type: "welcome" }>;
 
+/** "connecting" until the socket opens; "closed" once it has dropped. */
+export type ConnectionStatus = "connecting" | "open" | "closed";
+
 export function useGame() {
-  const [ready, setReady] = useState(false);
+  const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [state, setState] = useState<GameState | null>(null);
   const [welcome, setWelcome] = useState<Welcome | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -15,8 +18,8 @@ export function useGame() {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
     const ws = new WebSocket(`${proto}//${location.host}/ws`);
     wsRef.current = ws;
-    ws.onopen = () => setReady(true);
-    ws.onclose = () => setReady(false);
+    ws.onopen = () => setStatus("open");
+    ws.onclose = () => setStatus("closed");
     ws.onmessage = (ev) => {
       let msg: ServerMessage;
       try {
@@ -32,6 +35,7 @@ export function useGame() {
       else if (msg.type === "kicked") setKicked(true);
     };
     return () => {
+      ws.onclose = null;
       ws.close();
       wsRef.current = null;
     };
@@ -42,5 +46,14 @@ export function useGame() {
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
   }, []);
 
-  return { ready, state, welcome, error, kicked, send };
+  /** Forget the current game locally, e.g. before the host creates a new one. */
+  const reset = useCallback(() => {
+    setState(null);
+    setWelcome(null);
+    setError(null);
+  }, []);
+
+  const dismissError = useCallback(() => setError(null), []);
+
+  return { ready: status === "open", status, state, welcome, error, kicked, send, reset, dismissError };
 }
