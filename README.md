@@ -115,7 +115,7 @@ This starts the game server on **:4000** and the web app on **:5173**.
 
 ## Deploying
 
-See [`docs/DEPLOY.md`](docs/DEPLOY.md) for running it for free on an Oracle Cloud VM with HTTPS and no domain.
+It runs on [Render](https://render.com)'s free tier from the included `render.yaml`. See [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ## Project layout
 

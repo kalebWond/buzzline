@@ -19,7 +19,15 @@ interface Conn {
 export interface WsOptions {
   clock?: Clock;
   deck?: DeckQuestion[];
+  /**
+   * How often to send a WebSocket ping to every client, in ms. Keeps idle
+   * connections (e.g. players waiting in the lobby) from being closed by
+   * hosting proxies. 0 turns it off. Defaults to 30 seconds.
+   */
+  heartbeatMs?: number;
 }
+
+const DEFAULT_HEARTBEAT_MS = 30_000;
 
 function parse(raw: string): ClientMessage | null {
   let m: unknown;
@@ -202,6 +210,19 @@ export function attachWebSocket(server: http.Server, opts: WsOptions = {}): WebS
     ws.on("close", () => leave(ws));
     ws.on("error", () => leave(ws));
   });
+
+  const heartbeatMs = opts.heartbeatMs ?? DEFAULT_HEARTBEAT_MS;
+  let cancelHeartbeat = (): void => {};
+  const beat = (): void => {
+    for (const ws of wss.clients) if (ws.readyState === ws.OPEN) ws.ping();
+    cancelHeartbeat = clock.setTimeout(beat, heartbeatMs);
+  };
+  if (heartbeatMs > 0) {
+    cancelHeartbeat = clock.setTimeout(beat, heartbeatMs);
+    const stop = (): void => cancelHeartbeat();
+    server.on("close", stop);
+    wss.on("close", stop);
+  }
 
   return wss;
 }

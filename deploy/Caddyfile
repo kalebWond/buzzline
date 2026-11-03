@@ -1,7 +1,0 @@
-# Copy to /etc/caddy/Caddyfile and set BUZZLINE_HOST in /etc/default/caddy,
-# e.g. BUZZLINE_HOST=129-146-10-20.sslip.io (your VM's public IP with dashes).
-# Caddy fetches an HTTPS certificate for it and proxies WebSockets automatically.
-{$BUZZLINE_HOST} {
-	encode gzip
-	reverse_proxy 127.0.0.1:4000
-}
