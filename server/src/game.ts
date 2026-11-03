@@ -1,0 +1,181 @@
+import { randomUUID } from "node:crypto";
+import { QUESTION_SECONDS, type GameState, type Phase, type PlayerView } from "@buzzline/shared";
+import type { DeckQuestion } from "./deck.js";
+
+export interface Clock {
+  now(): number;
+  /** Schedules fn after ms. Returns a function that cancels it. */
+  setTimeout(fn: () => void, ms: number): () => void;
+}
+
+export const systemClock: Clock = {
+  now: () => Date.now(),
+  setTimeout: (fn, ms) => {
+    const t = setTimeout(fn, ms);
+    return () => clearTimeout(t);
+  },
+};
+
+/** Error messages from the contract, highest priority first. */
+export const ERROR_ORDER = [
+  "Invalid message",
+  "Game not found",
+  "Player not found",
+  "Game already started",
+  "Not allowed now",
+  "Need at least 1 player",
+  "Name must be 1 to 20 characters",
+  "Name taken",
+] as const;
+export type GameError = (typeof ERROR_ORDER)[number];
+
+export type Result<T = object> = ({ ok: true } & T) | { ok: false; error: GameError };
+
+interface Player {
+  id: string;
+  name: string;
+  score: number;
+  answered: boolean;
+  pending: number;
+}
+
+const QUESTION_MS = QUESTION_SECONDS * 1000;
+
+/**
+ * Game rules only. No networking. `onChange` fires after a change caused by
+ * start, next, answer, a timer, a lobby leave or the host leaving. join() and
+ * rejoin() do not fire it: the caller sends welcome first, then announces.
+ */
+export class Game {
+  private phase: Phase = "lobby";
+  private players: Player[] = [];
+  private questionIndex = 0;
+  private deadline: number | null = null;
+  private cancelTimer: (() => void) | null = null;
+
+  constructor(
+    readonly code: string,
+    private readonly deck: DeckQuestion[],
+    private readonly clock: Clock,
+    private readonly onChange: () => void,
+  ) {}
+
+  state(): GameState {
+    const q = this.phase === "question" || this.phase === "reveal" ? this.deck[this.questionIndex] : undefined;
+    const players: PlayerView[] = this.players
+      .map((p) => ({ id: p.id, name: p.name, score: p.score, answered: p.answered }))
+      .sort((a, b) => b.score - a.score); // stable: ties keep join order
+    return {
+      code: this.code,
+      phase: this.phase,
+      players,
+      questionIndex: this.questionIndex,
+      questionCount: this.deck.length,
+      question: q ? { text: q.text, choices: [...q.choices] } : null,
+      deadline: this.phase === "question" ? this.deadline : null,
+      correctIndex: this.phase === "reveal" && q ? q.correctIndex : null,
+    };
+  }
+
+  checkJoin(rawName: string): GameError | null {
+    if (this.phase !== "lobby") return "Game already started";
+    const name = rawName.trim();
+    if (name.length < 1 || name.length > 20) return "Name must be 1 to 20 characters";
+    if (this.players.some((p) => p.name === name)) return "Name taken";
+    return null;
+  }
+
+  join(rawName: string): Result<{ playerId: string }> {
+    const error = this.checkJoin(rawName);
+    if (error) return { ok: false, error };
+    const player: Player = { id: randomUUID(), name: rawName.trim(), score: 0, answered: false, pending: 0 };
+    this.players.push(player);
+    return { ok: true, playerId: player.id };
+  }
+
+  checkRejoin(playerId: string): GameError | null {
+    if (!this.players.some((p) => p.id === playerId)) return "Player not found";
+    if (this.phase === "lobby") return "Not allowed now";
+    return null;
+  }
+
+  /** A player's socket closed. Only lobby players are removed. */
+  removePlayer(playerId: string): void {
+    if (this.phase !== "lobby") return;
+    const before = this.players.length;
+    this.players = this.players.filter((p) => p.id !== playerId);
+    if (this.players.length !== before) this.onChange();
+  }
+
+  /** The host's socket closed. */
+  hostLeft(): void {
+    if (this.phase === "finished") return;
+    this.cancel();
+    this.deadline = null;
+    this.phase = "finished";
+    this.onChange();
+  }
+
+  start(): Result {
+    if (this.phase !== "lobby") return { ok: false, error: "Not allowed now" };
+    if (this.players.length < 1) return { ok: false, error: "Need at least 1 player" };
+    this.beginQuestion(0);
+    return { ok: true };
+  }
+
+  next(): Result {
+    if (this.phase !== "reveal") return { ok: false, error: "Not allowed now" };
+    if (this.questionIndex + 1 >= this.deck.length) {
+      this.phase = "finished";
+      this.onChange();
+    } else {
+      this.beginQuestion(this.questionIndex + 1);
+    }
+    return { ok: true };
+  }
+
+  answer(playerId: string, choice: number): Result {
+    if (this.phase !== "question") return { ok: false, error: "Not allowed now" };
+    const player = this.players.find((p) => p.id === playerId);
+    const now = this.clock.now();
+    // Second and late answers are ignored without an error.
+    if (!player || player.answered || this.deadline === null || now >= this.deadline) return { ok: true };
+    const q = this.deck[this.questionIndex]!;
+    player.answered = true;
+    if (choice === q.correctIndex) {
+      player.pending = 500 + Math.round((500 * (this.deadline - now)) / QUESTION_MS);
+    }
+    if (this.players.every((p) => p.answered)) this.reveal();
+    else this.onChange();
+    return { ok: true };
+  }
+
+  private beginQuestion(index: number): void {
+    this.questionIndex = index;
+    this.phase = "question";
+    for (const p of this.players) {
+      p.answered = false;
+      p.pending = 0;
+    }
+    this.deadline = this.clock.now() + QUESTION_MS;
+    this.cancelTimer = this.clock.setTimeout(() => this.reveal(), QUESTION_MS);
+    this.onChange();
+  }
+
+  private reveal(): void {
+    if (this.phase !== "question") return;
+    this.cancel();
+    for (const p of this.players) {
+      p.score += p.pending;
+      p.pending = 0;
+    }
+    this.deadline = null;
+    this.phase = "reveal";
+    this.onChange();
+  }
+
+  private cancel(): void {
+    this.cancelTimer?.();
+    this.cancelTimer = null;
+  }
+}
