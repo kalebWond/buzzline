@@ -2,6 +2,7 @@ import type { GameState, PlayerView } from "@buzzline/shared";
 import { useEffect, useState } from "react";
 import { useGame } from "../lib/useGame";
 import { barPercents } from "./barHeights";
+import { streakLabel } from "../lib/streakLabel";
 import { topThree } from "./topThree";
 
 const page: React.CSSProperties = {
@@ -30,7 +31,7 @@ function Podium({ players }: { players: PlayerView[] }) {
     <ol style={{ listStyle: "none", padding: 0, fontSize: "3.5vw" }}>
       {topThree(players).map((p, i) => (
         <li key={p.id} style={{ margin: "1.5vh 0" }}>
-          {["🥇", "🥈", "🥉"][i]} {p.name} — {p.score}
+          {["🥇", "🥈", "🥉"][i]} {p.name} — {p.score}{p.streak > 0 && ` ${streakLabel(p.streak)}`}
         </li>
       ))}
     </ol>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import { useGame } from "../lib/useGame";
+import { streakLabel } from "../lib/streakLabel";
 import { findMe, rankOf, screenFor } from "./screenFor";
 
 const COLORS = ["#e21b3c", "#1368ce", "#d89e00", "#26890c"];
@@ -146,6 +147,7 @@ export default function PlayerApp() {
         {gained > 0 && <p>+{gained} points</p>}
         <p style={{ fontSize: 28 }}>Score: {me.score}</p>
         <p>Rank {rankOf(state, me.id)} of {state.players.length}</p>
+        {me.streak > 0 && <p>{streakLabel(me.streak)}</p>}
       </div>
     );
   }

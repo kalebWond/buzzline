@@ -266,7 +266,7 @@ describe("a full game over sockets", () => {
       h.send({ type: "host:next" });
     }
     await ann.c.until(() => ann.c.state().phase === "finished");
-    expect(ann.c.state().players[0]!.score).toBe(5000);
+    expect(ann.c.state().players[0]!.score).toBe(5200); // 5 x 1000 + streak bonus at 3
   });
 });
 
