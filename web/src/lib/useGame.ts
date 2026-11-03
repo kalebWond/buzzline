@@ -8,6 +8,7 @@ export function useGame() {
   const [state, setState] = useState<GameState | null>(null);
   const [welcome, setWelcome] = useState<Welcome | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [kicked, setKicked] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
@@ -28,6 +29,7 @@ export function useGame() {
         setState(msg.state);
         setError(null);
       } else if (msg.type === "error") setError(msg.message);
+      else if (msg.type === "kicked") setKicked(true);
     };
     return () => {
       ws.close();
@@ -40,5 +42,5 @@ export function useGame() {
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
   }, []);
 
-  return { ready, state, welcome, error, send };
+  return { ready, state, welcome, error, kicked, send };
 }

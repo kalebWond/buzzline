@@ -110,6 +110,21 @@ export class Game {
     return null;
   }
 
+  /** Why host:kick cannot remove this player, ignoring who sent it. */
+  checkKick(playerId: string): GameError | null {
+    if (!this.players.some((p) => p.id === playerId)) return "Player not found";
+    if (this.phase !== "lobby") return "Not allowed now";
+    return null;
+  }
+
+  /** The host removes a lobby player. Fires onChange. */
+  kick(playerId: string): Result {
+    const error = this.checkKick(playerId);
+    if (error) return { ok: false, error };
+    this.removePlayer(playerId);
+    return { ok: true };
+  }
+
   /** A player's socket closed. Only lobby players are removed. */
   removePlayer(playerId: string): void {
     if (this.phase !== "lobby") return;

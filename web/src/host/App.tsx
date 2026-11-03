@@ -38,7 +38,7 @@ function Podium({ players }: { players: PlayerView[] }) {
   );
 }
 
-function Lobby({ s, onStart }: { s: GameState; onStart: () => void }) {
+function Lobby({ s, onStart, onKick }: { s: GameState; onStart: () => void; onKick: (playerId: string) => void }) {
   return (
     <>
       <div style={{ fontSize: "2.5vw" }}>Join with code</div>
@@ -46,7 +46,14 @@ function Lobby({ s, onStart }: { s: GameState; onStart: () => void }) {
       <div style={{ ...big, display: "flex", flexWrap: "wrap", gap: "1vw", justifyContent: "center" }}>
         {s.players.map((p) => (
           <span key={p.id} style={{ background: "#3a2f7a", padding: "0.5vh 2vw", borderRadius: 12 }}>
-            {p.name}
+            {p.name}{" "}
+            <button
+              aria-label={`Kick ${p.name}`}
+              style={{ fontSize: "1.8vw", border: "none", borderRadius: 8, background: "#e21b3c", color: "#fff", cursor: "pointer" }}
+              onClick={() => onKick(p.id)}
+            >
+              Kick
+            </button>
           </span>
         ))}
       </div>
@@ -160,7 +167,7 @@ export default function HostApp() {
     <div style={page}>
       {error && <div style={{ background: "#e21b3c", padding: 8, borderRadius: 8 }}>{error}</div>}
       {!state && <h1 style={big}>{ready ? "Creating game…" : "Connecting…"}</h1>}
-      {state?.phase === "lobby" && <Lobby s={state} onStart={() => send({ type: "host:start" })} />}
+      {state?.phase === "lobby" && <Lobby s={state} onStart={() => send({ type: "host:start" })} onKick={(playerId) => send({ type: "host:kick", playerId })} />}
       {state?.phase === "question" && <Question s={state} />}
       {state?.phase === "reveal" && <Reveal s={state} onNext={() => send({ type: "host:next" })} />}
       {state?.phase === "finished" && (

@@ -35,6 +35,8 @@ function parse(raw: string): ClientMessage | null {
     case "host:start":
     case "host:next":
       return { type: o.type };
+    case "host:kick":
+      return typeof o.playerId === "string" ? { type: "host:kick", playerId: o.playerId } : null;
     case "player:join":
       return typeof o.code === "string" && typeof o.name === "string"
         ? { type: "player:join", code: o.code, name: o.name }
@@ -159,6 +161,24 @@ export function attachWebSocket(server: http.Server, opts: WsOptions = {}): WebS
         if (!conn || conn.role !== "host") return fail(ws, "Not allowed now");
         const res = msg.type === "host:start" ? conn.room.game.start() : conn.room.game.next();
         if (!res.ok) fail(ws, res.error);
+        return;
+      }
+      case "host:kick": {
+        if (!conn) return fail(ws, "Not allowed now");
+        const { room } = conn;
+        // Player not found outranks Not allowed now, so check the target first.
+        const err = room.game.checkKick(msg.playerId) ?? (conn.role !== "host" ? "Not allowed now" : null);
+        if (err) return fail(ws, err);
+        const target = room.players.get(msg.playerId);
+        if (target) {
+          conns.delete(target); // so its close event is not treated as a disconnect
+          room.players.delete(msg.playerId);
+        }
+        room.game.kick(msg.playerId); // broadcasts to everyone else
+        if (target) {
+          send(target, { type: "kicked" });
+          target.close();
+        }
         return;
       }
       case "player:answer": {
