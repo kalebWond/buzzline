@@ -81,6 +81,42 @@ describe("auto-advance", () => {
     expect(game.state().questionIndex).toBe(2);
   });
 
+  it("a skipped timer cannot cut the next reveal short", () => {
+    const id = setup(true);
+    toReveal(id);
+    clock.advance(2000);
+    game.next();
+    toReveal(id); // question 1 reveals before the old timer would have fired
+    clock.advance(REVEAL_MS - 2000); // the old timer's moment
+    expect(game.state().phase).toBe("reveal");
+    expect(game.state().questionIndex).toBe(1);
+    clock.advance(2000); // question 1's own pause ends
+    expect(game.state().questionIndex).toBe(2);
+  });
+
+  it("leaves no timer armed after a skip, the last skip, or the host leaving", () => {
+    const id = setup(true);
+    toReveal(id);
+    expect(clock.pending).toBe(1); // the reveal timer
+    game.next();
+    expect(clock.pending).toBe(1); // only question 1's own timer
+    for (let i = 1; i < deck.length; i++) {
+      toReveal(id);
+      if (i < deck.length - 1) game.next();
+    }
+    game.next(); // skip the last reveal
+    expect(game.state().phase).toBe("finished");
+    expect(clock.pending).toBe(0);
+  });
+
+  it("leaves no timer armed when the host leaves during the pause", () => {
+    const id = setup(true);
+    toReveal(id);
+    expect(clock.pending).toBe(1);
+    game.hostLeft();
+    expect(clock.pending).toBe(0);
+  });
+
   it("a skip on the last question finishes once and cancels the timer", () => {
     const id = setup(true);
     for (let i = 0; i < deck.length - 1; i++) {

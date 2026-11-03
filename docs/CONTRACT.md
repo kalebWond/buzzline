@@ -58,7 +58,7 @@ Players join at `/?code=ABCD`, where ABCD is the game code. The player screen fi
 | question      | `{ text: string, choices: string[] }`, or null | Null in lobby and finished |
 | deadline      | epoch milliseconds, or null         | Set only during question      |
 | correctIndex  | number or null                      | Set only during reveal        |
-| autoAdvance   | boolean                             | The value sent with host:start. `false` in the lobby unless set, and false for every game that was started without it |
+| autoAdvance   | boolean                             | The value sent with host:start. `false` in the lobby and for every game started without it |
 | nextAt        | epoch milliseconds, or null         | Set only during a reveal of a game with autoAdvance. The moment the server moves on by itself |
 | answerCounts  | array of numbers, or null           | Set only during reveal. One count per choice, in choice order. Null in every other phase |
 

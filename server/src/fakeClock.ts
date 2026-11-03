@@ -5,6 +5,11 @@ export class FakeClock implements Clock {
   private timers: { at: number; fn: () => void; id: number }[] = [];
   private seq = 0;
 
+  /** Timers scheduled and not yet fired or cancelled. */
+  get pending(): number {
+    return this.timers.length;
+  }
+
   now(): number {
     return this.t;
   }
