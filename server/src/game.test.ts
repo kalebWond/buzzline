@@ -45,6 +45,8 @@ describe("lobby", () => {
       deadline: null,
       correctIndex: null,
       answerCounts: null,
+      autoAdvance: false,
+      nextAt: null,
     });
   });
 

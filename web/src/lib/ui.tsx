@@ -93,6 +93,18 @@ export function TimerRing({ deadline, size = "md" }: { deadline: number | null; 
   );
 }
 
+/** "Next question in 3s" while the server's auto-advance timer runs. Renders nothing without nextAt. */
+export function RevealCountdown({ nextAt }: { nextAt: number | null }) {
+  const now = useNow(200);
+  if (nextAt === null) return null;
+  const secs = Math.max(0, Math.ceil((nextAt - now) / 1000));
+  return (
+    <span className="reveal-countdown muted" role="timer" aria-live="off">
+      Next in <b>{secs}s</b>
+    </span>
+  );
+}
+
 /** Thin countdown bar plus a seconds pill, for the phone. */
 export function TimerBar({ deadline }: { deadline: number | null }) {
   const now = useNow(200);

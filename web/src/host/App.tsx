@@ -8,6 +8,7 @@ import {
   ConnectionBanner,
   Dots,
   Progress,
+  RevealCountdown,
   Stage,
   StreakBadge,
   TimerRing,
@@ -99,12 +100,13 @@ function Lobby({
 }: {
   s: GameState;
   deckId: DeckId | null;
-  onStart: () => void;
+  onStart: (autoAdvance: boolean) => void;
   onKick: (playerId: string) => void;
 }) {
   const url = joinUrl(location.origin, s.code);
   const deck = DECKS.find((d) => d.id === deckId);
   const n = s.players.length;
+  const [auto, setAuto] = useState(false);
   return (
     <Stage id="lobby" className="host-lobby">
       <section className="join-panel card">
@@ -156,7 +158,10 @@ function Lobby({
         )}
         <footer className="roster-foot">
           <span className="muted">{n === 0 ? "Need at least 1 player to start" : `${n} ready to play`}</span>
-          <button className="btn btn-primary btn-xl" disabled={n === 0} onClick={onStart}>
+          <label className="auto-toggle">
+            <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> Auto-advance
+          </label>
+          <button className="btn btn-primary btn-xl" disabled={n === 0} onClick={() => onStart(auto)}>
             Start game <span aria-hidden="true">→</span>
           </button>
         </footer>
@@ -284,6 +289,7 @@ function Reveal({ s, before, onNext }: { s: GameState; before: Snapshot | null; 
     <Stage id={`r${s.questionIndex}`} className="host-reveal">
       <header className="host-bar">
         <Progress index={s.questionIndex} count={s.questionCount} />
+        <RevealCountdown nextAt={s.nextAt} />
         <button className="btn btn-primary btn-lg" onClick={onNext} autoFocus>
           {last ? "Final results" : "Next question"} <span aria-hidden="true">→</span>
         </button>
@@ -409,7 +415,7 @@ export default function HostApp() {
       <Lobby
         s={state}
         deckId={deckId}
-        onStart={() => send({ type: "host:start" })}
+        onStart={(autoAdvance) => send({ type: "host:start", autoAdvance })}
         onKick={(playerId) => send({ type: "host:kick", playerId })}
       />
     );

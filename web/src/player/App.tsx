@@ -2,7 +2,7 @@ import { STREAK_BONUS, STREAK_LENGTH, type GameState, type PlayerView } from "@b
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { choiceStyle, formatScore, ordinal } from "../lib/format";
-import { Avatar, Brand, ChoiceLetter, ConnectionBanner, Dots, Stage, StreakBadge, TimerBar } from "../lib/ui";
+import { Avatar, Brand, ChoiceLetter, ConnectionBanner, Dots, RevealCountdown, Stage, StreakBadge, TimerBar } from "../lib/ui";
 import { useGame } from "../lib/useGame";
 import { findMe, rankOf, screenFor } from "./screenFor";
 
@@ -338,6 +338,7 @@ export default function PlayerApp() {
           </div>
         )}
         {!bonus && correct && me.streak > 1 && <StreakBadge streak={me.streak} className="streak-lg" />}
+        <RevealCountdown nextAt={state.nextAt} />
         <div className="stat-row">
           <div className="stat">
             <span className="stat-label">Score</span>

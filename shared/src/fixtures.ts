@@ -19,6 +19,8 @@ export const fixtures: Record<Phase, GameState> = {
     deadline: null,
     correctIndex: null,
     answerCounts: null,
+    autoAdvance: false,
+    nextAt: null,
   },
   question: {
     code: "ABCD",
@@ -33,6 +35,8 @@ export const fixtures: Record<Phase, GameState> = {
     deadline: 1_700_000_020_000,
     correctIndex: null,
     answerCounts: null,
+    autoAdvance: false,
+    nextAt: null,
   },
   reveal: {
     code: "ABCD",
@@ -47,6 +51,8 @@ export const fixtures: Record<Phase, GameState> = {
     deadline: null,
     correctIndex: 1,
     answerCounts: [0, 1, 0, 1],
+    autoAdvance: false,
+    nextAt: null,
   },
   finished: {
     code: "ABCD",
@@ -61,5 +67,7 @@ export const fixtures: Record<Phase, GameState> = {
     deadline: null,
     correctIndex: null,
     answerCounts: null,
+    autoAdvance: false,
+    nextAt: null,
   },
 };
