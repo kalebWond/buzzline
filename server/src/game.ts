@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { QUESTION_SECONDS, type GameState, type Phase, type PlayerView } from "@buzzline/shared";
+import { QUESTION_SECONDS, STREAK_BONUS, STREAK_LENGTH, type GameState, type Phase, type PlayerView } from "@buzzline/shared";
 import type { DeckQuestion } from "./deck.js";
 
 export interface Clock {
@@ -36,6 +36,7 @@ interface Player {
   name: string;
   score: number;
   answered: boolean;
+  streak: number;
   pending: number;
   choice: number | null;
 }
@@ -64,7 +65,7 @@ export class Game {
   state(): GameState {
     const q = this.phase === "question" || this.phase === "reveal" ? this.deck[this.questionIndex] : undefined;
     const players: PlayerView[] = this.players
-      .map((p) => ({ id: p.id, name: p.name, score: p.score, answered: p.answered, streak: 0 }))
+      .map((p) => ({ id: p.id, name: p.name, score: p.score, answered: p.answered, streak: p.streak }))
       .sort((a, b) => b.score - a.score); // stable: ties keep join order
     return {
       code: this.code,
@@ -98,7 +99,7 @@ export class Game {
   join(rawName: string): Result<{ playerId: string }> {
     const error = this.checkJoin(rawName);
     if (error) return { ok: false, error };
-    const player: Player = { id: randomUUID(), name: rawName.trim(), score: 0, answered: false, pending: 0, choice: null };
+    const player: Player = { id: randomUUID(), name: rawName.trim(), score: 0, answered: false, streak: 0, pending: 0, choice: null };
     this.players.push(player);
     return { ok: true, playerId: player.id };
   }
@@ -179,6 +180,12 @@ export class Game {
     this.cancel();
     for (const p of this.players) {
       p.score += p.pending;
+      if (p.pending > 0) {
+        p.streak += 1;
+        if (p.streak % STREAK_LENGTH === 0) p.score += STREAK_BONUS;
+      } else {
+        p.streak = 0;
+      }
       p.pending = 0;
     }
     this.deadline = null;

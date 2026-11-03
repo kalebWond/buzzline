@@ -314,7 +314,7 @@ describe("progression", () => {
     expect(s.question).toBeNull();
     expect(s.deadline).toBeNull();
     expect(s.correctIndex).toBeNull();
-    expect(s.players[0]!.score).toBe(5000);
+    expect(s.players[0]!.score).toBe(5200); // 5 x 1000 + streak bonus at 3
     expect(game.next()).toEqual({ ok: false, error: "Not allowed now" });
   });
 
