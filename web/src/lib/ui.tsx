@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { avatarHue, choiceLetter, initials, secondsLeft, timeFraction } from "./format";
 import type { ConnectionStatus } from "./useGame";
 
@@ -90,6 +90,52 @@ export function TimerRing({ deadline, size = "md" }: { deadline: number | null; 
       </svg>
       <span className="timer-num">{secs}</span>
     </div>
+  );
+}
+
+/**
+ * An on/off setting: a title, a one-line explanation and a switch. The whole row is
+ * clickable. Under the hood it is a native checkbox with role="switch", so keyboard,
+ * screen readers and forms behave as usual.
+ */
+export function Setting({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  const id = useId();
+  return (
+    <label className={`setting ${checked ? "is-on" : ""}`} htmlFor={id}>
+      <span className="setting-text">
+        <span className="setting-label" id={`${id}-label`}>
+          {label}
+        </span>
+        <span className="setting-desc" id={`${id}-desc`}>
+          {description}
+        </span>
+      </span>
+      <span className="switch">
+        <input
+          id={id}
+          type="checkbox"
+          role="switch"
+          className="switch-input"
+          checked={checked}
+          aria-labelledby={`${id}-label`}
+          aria-describedby={`${id}-desc`}
+          onChange={(e) => onChange(e.target.checked)}
+        />
+        <span className="switch-track" aria-hidden="true">
+          <span className="switch-thumb" />
+        </span>
+      </span>
+    </label>
   );
 }
 
