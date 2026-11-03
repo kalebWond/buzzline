@@ -110,7 +110,12 @@ This starts the game server on **:4000** and the web app on **:5173**.
 | `npm run dev` | Server and web app with hot reload |
 | `npm run check` | Typecheck every workspace, then run all tests |
 | `npm test` | Tests only |
-| `npm run build -w web` | Production build of the web app |
+| `npm run build` | Production build of the web app |
+| `npm start` | Production server: serves the built web app, API and WebSocket on one port |
+
+## Deploying
+
+See [`docs/DEPLOY.md`](docs/DEPLOY.md) for running it for free on an Oracle Cloud VM with HTTPS and no domain.
 
 ## Project layout
 
