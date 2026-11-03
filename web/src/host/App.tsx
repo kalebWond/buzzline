@@ -1,6 +1,7 @@
 import type { GameState, PlayerView } from "@buzzline/shared";
 import { useEffect, useState } from "react";
 import { useGame } from "../lib/useGame";
+import { barPercents } from "./barHeights";
 import { topThree } from "./topThree";
 
 const page: React.CSSProperties = {
@@ -91,6 +92,29 @@ function Choices({ s }: { s: GameState }) {
   );
 }
 
+function AnswerBars({ s }: { s: GameState }) {
+  if (!s.answerCounts) return null;
+  const pct = barPercents(s.answerCounts);
+  return (
+    <div style={{ display: "flex", gap: "2vw", alignItems: "flex-end", height: "20vh", marginTop: "3vh" }}>
+      {s.answerCounts.map((n, i) => (
+        <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end", height: "100%" }}>
+          <div style={{ fontSize: "2.5vw", fontWeight: 700 }}>{n}</div>
+          <div
+            style={{
+              height: `${pct[i]}%`,
+              minHeight: 4,
+              background: colors[i % 4],
+              borderRadius: 8,
+              opacity: s.correctIndex !== null && s.correctIndex !== i ? 0.3 : 1,
+            }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Question({ s }: { s: GameState }) {
   const answered = s.players.filter((p) => p.answered).length;
   return (
@@ -114,6 +138,7 @@ function Reveal({ s, onNext }: { s: GameState; onNext: () => void }) {
     <>
       <h1 style={{ fontSize: "4vw", margin: "1vh 0" }}>{s.question?.text}</h1>
       <Choices s={s} />
+      <AnswerBars s={s} />
       <h2 style={big}>Top players</h2>
       <Podium players={s.players} />
       <button style={button} onClick={onNext}>

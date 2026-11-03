@@ -44,6 +44,7 @@ describe("lobby", () => {
       question: null,
       deadline: null,
       correctIndex: null,
+      answerCounts: null,
     });
   });
 
@@ -325,6 +326,57 @@ describe("progression", () => {
     expect(s.correctIndex).toBe(deck[0]!.correctIndex);
     expect(s.deadline).toBeNull();
     expect(s.question).not.toBeNull();
+  });
+});
+
+describe("answerCounts", () => {
+  it("is null in lobby, question and finished", () => {
+    const a = join("Ann");
+    expect(game.state().answerCounts).toBeNull();
+    game.start();
+    game.answer(a, 0);
+    game.next();
+    expect(game.state().answerCounts).toBeNull();
+  });
+
+  it("is null while a question is running even after some answers", () => {
+    const a = join("Ann");
+    join("Bob");
+    game.start();
+    game.answer(a, 2);
+    expect(game.state().phase).toBe("question");
+    expect(game.state().answerCounts).toBeNull();
+  });
+
+  it("counts one per choice and skips non-answerers", () => {
+    const a = join("Ann");
+    const b = join("Bob");
+    join("Cy");
+    game.start();
+    game.answer(a, 2);
+    game.answer(b, 2);
+    clock.advance(20_000);
+    expect(game.state().phase).toBe("reveal");
+    expect(game.state().answerCounts).toEqual([0, 0, 2, 0]);
+  });
+
+  it("ignores second answers and resets for the next question", () => {
+    const a = join("Ann");
+    game.start();
+    game.answer(a, 1);
+    expect(game.state().answerCounts).toEqual([0, 1, 0, 0]);
+    game.answer(a, 3);
+    expect(game.state().answerCounts).toEqual([0, 1, 0, 0]);
+    game.next();
+    game.answer(a, 3);
+    expect(game.state().answerCounts).toEqual([0, 0, 0, 1]);
+  });
+
+  it("ignores out-of-range choices", () => {
+    const a = join("Ann");
+    game.start();
+    game.answer(a, 9);
+    expect(game.state().answerCounts).toEqual([0, 0, 0, 0]);
   });
 });
 

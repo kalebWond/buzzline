@@ -50,6 +50,7 @@ Players join at `/?code=ABCD`, where ABCD is the game code. The player screen fi
 | question      | `{ text: string, choices: string[] }`, or null | Null in lobby and finished |
 | deadline      | epoch milliseconds, or null         | Set only during question      |
 | correctIndex  | number or null                      | Set only during reveal        |
+| answerCounts  | array of numbers, or null           | Set only during reveal. One count per choice, in choice order. Null in every other phase |
 
 ## Rules
 - A game has five questions, kept in server/src/deck.ts.
@@ -61,6 +62,7 @@ Players join at `/?code=ABCD`, where ABCD is the game code. The player screen fi
 - A correct answer scores 500 + round(500 x time left / 20 seconds). Otherwise 0.
 - Scores change only when the game moves to reveal.
 - A player's `answered` becomes true when they answer, stays true through the reveal, and goes back to false when the next question starts.
+- `answerCounts[i]` is how many players chose choice `i` in the current question. Players who did not answer are not counted. Counts never reach a client before the reveal phase.
 - Second answers and late answers are ignored.
 - After the last question, host:next moves the game to finished.
 - A player who disconnects in the lobby is removed. Later, they stay on the board.

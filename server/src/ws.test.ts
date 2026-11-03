@@ -222,6 +222,8 @@ describe("a full game over sockets", () => {
       await c.until(() => c.state().phase === "question");
       expect(c.state().correctIndex).toBeNull();
       expect(JSON.stringify(c.msgs)).not.toMatch(/correctIndex":\d/);
+      expect(c.state().answerCounts).toBeNull();
+      expect(JSON.stringify(c.msgs)).not.toMatch(/answerCounts":\[/);
     }
 
     clock.advance(5_000);
@@ -234,6 +236,10 @@ describe("a full game over sockets", () => {
     bob.c.send({ type: "player:answer", choice: (right + 1) % 4 });
     await h.until(() => h.state().phase === "reveal");
     expect(h.state().correctIndex).toBe(right);
+    const expected = [0, 0, 0, 0];
+    expected[right] = 1;
+    expected[(right + 1) % 4] = 1;
+    expect(h.state().answerCounts).toEqual(expected);
     expect(h.state().players.map((p) => [p.name, p.score])).toEqual([
       ["Ann", 875],
       ["Bob", 0],

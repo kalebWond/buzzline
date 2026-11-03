@@ -25,6 +25,7 @@ export interface GameState {
   question: QuestionView | null;
   deadline: number | null;
   correctIndex: number | null;
+  answerCounts: number[] | null;
 }
 
 export type ClientMessage =
