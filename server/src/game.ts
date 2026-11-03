@@ -37,6 +37,7 @@ interface Player {
   score: number;
   answered: boolean;
   pending: number;
+  choice: number | null;
 }
 
 const QUESTION_MS = QUESTION_SECONDS * 1000;
@@ -74,7 +75,16 @@ export class Game {
       question: q ? { text: q.text, choices: [...q.choices] } : null,
       deadline: this.phase === "question" ? this.deadline : null,
       correctIndex: this.phase === "reveal" && q ? q.correctIndex : null,
+      answerCounts: this.phase === "reveal" && q ? this.countAnswers(q.choices.length) : null,
     };
+  }
+
+  private countAnswers(n: number): number[] {
+    const counts = new Array<number>(n).fill(0);
+    for (const p of this.players) {
+      if (p.choice !== null && p.choice >= 0 && p.choice < n) counts[p.choice]!++;
+    }
+    return counts;
   }
 
   checkJoin(rawName: string): GameError | null {
@@ -88,7 +98,7 @@ export class Game {
   join(rawName: string): Result<{ playerId: string }> {
     const error = this.checkJoin(rawName);
     if (error) return { ok: false, error };
-    const player: Player = { id: randomUUID(), name: rawName.trim(), score: 0, answered: false, pending: 0 };
+    const player: Player = { id: randomUUID(), name: rawName.trim(), score: 0, answered: false, pending: 0, choice: null };
     this.players.push(player);
     return { ok: true, playerId: player.id };
   }
@@ -142,6 +152,7 @@ export class Game {
     if (!player || player.answered || this.deadline === null || now >= this.deadline) return { ok: true };
     const q = this.deck[this.questionIndex]!;
     player.answered = true;
+    player.choice = choice;
     if (choice === q.correctIndex) {
       player.pending = 500 + Math.round((500 * (this.deadline - now)) / QUESTION_MS);
     }
@@ -156,6 +167,7 @@ export class Game {
     for (const p of this.players) {
       p.answered = false;
       p.pending = 0;
+      p.choice = null;
     }
     this.deadline = this.clock.now() + QUESTION_MS;
     this.cancelTimer = this.clock.setTimeout(() => this.reveal(), QUESTION_MS);
