@@ -3,7 +3,7 @@ import { fixtures } from "@buzzline/shared/fixtures";
 import { describe, expect, it } from "vitest";
 import { topThree } from "./topThree";
 
-const p = (id: string, score: number): PlayerView => ({ id, name: id, score, answered: false });
+const p = (id: string, score: number): PlayerView => ({ id, name: id, score, answered: false, streak: 0 });
 
 describe("topThree", () => {
   it("returns fewer than three when few players", () => {

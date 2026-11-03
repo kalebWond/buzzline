@@ -10,8 +10,8 @@ export const fixtures: Record<Phase, GameState> = {
     code: "ABCD",
     phase: "lobby",
     players: [
-      { id: "p1", name: "Ada", score: 0, answered: false },
-      { id: "p2", name: "Linus", score: 0, answered: false },
+      { id: "p1", name: "Ada", score: 0, answered: false, streak: 0 },
+      { id: "p2", name: "Linus", score: 0, answered: false, streak: 0 },
     ],
     questionIndex: 0,
     questionCount: 5,
@@ -24,8 +24,8 @@ export const fixtures: Record<Phase, GameState> = {
     code: "ABCD",
     phase: "question",
     players: [
-      { id: "p1", name: "Ada", score: 0, answered: true },
-      { id: "p2", name: "Linus", score: 0, answered: false },
+      { id: "p1", name: "Ada", score: 0, answered: true, streak: 0 },
+      { id: "p2", name: "Linus", score: 0, answered: false, streak: 0 },
     ],
     questionIndex: 0,
     questionCount: 5,
@@ -38,8 +38,8 @@ export const fixtures: Record<Phase, GameState> = {
     code: "ABCD",
     phase: "reveal",
     players: [
-      { id: "p1", name: "Ada", score: 900, answered: true },
-      { id: "p2", name: "Linus", score: 0, answered: true },
+      { id: "p1", name: "Ada", score: 900, answered: true, streak: 1 },
+      { id: "p2", name: "Linus", score: 0, answered: true, streak: 0 },
     ],
     questionIndex: 0,
     questionCount: 5,
@@ -52,8 +52,8 @@ export const fixtures: Record<Phase, GameState> = {
     code: "ABCD",
     phase: "finished",
     players: [
-      { id: "p1", name: "Ada", score: 3800, answered: true },
-      { id: "p2", name: "Linus", score: 2100, answered: true },
+      { id: "p1", name: "Ada", score: 3800, answered: true, streak: 3 },
+      { id: "p2", name: "Linus", score: 2100, answered: true, streak: 0 },
     ],
     questionIndex: 4,
     questionCount: 5,

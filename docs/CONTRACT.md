@@ -8,14 +8,19 @@ Players join at `/?code=ABCD`, where ABCD is the game code. The player screen fi
 ## Client messages
 | type          | Fields         | Sent by | Allowed when                                                 |
 |---------------|----------------|---------|--------------------------------------------------------------|
-| host:create   |                | anyone  | Always. Sender becomes host                                  |
+| host:create   | deckId (optional) | anyone  | Always. Sender becomes host                               |
 | player:join   | code, name     | anyone  | Lobby                                                        |
 | player:rejoin | code, playerId | anyone  | Question, reveal or finished                                 |
 | host:start    |                | host    | Lobby, with at least 1 player                                |
 | player:answer | choice         | player  | Question                                                     |
 | host:next     |                | host    | Reveal                                                       |
+| host:kick     | playerId       | host    | Lobby                                                        |
 
 `choice` is the zero-based index of the chosen answer.
+
+`deckId` is one of `"classic"`, `"science"` or `"geography"`. If it is left out, the game uses `"classic"`. Any other value is an `Invalid message`.
+
+`playerId` in host:kick is the id of a player in the host's game. If no such player exists, the server sends `Player not found`.
 
 ## Server messages
 | type    | Fields               | Sent                                                 |
@@ -23,6 +28,7 @@ Players join at `/?code=ABCD`, where ABCD is the game code. The player screen fi
 | welcome | role, playerId, code | Once, after create, join or rejoin. playerId is null for host |
 | state   | state                | To everyone in the game, after every change          |
 | error   | message              | To the sender only. The game state does not change   |
+| kicked  |                      | To a player the host kicked, once, just before the server closes that player's socket |
 
 `role` is `"host"` or `"player"`. `playerId` is a string. The sender gets `welcome` first, then `state`. Creating, joining and rejoining a game each count as a change.
 
@@ -44,7 +50,7 @@ Players join at `/?code=ABCD`, where ABCD is the game code. The player screen fi
 |---------------|-------------------------------------|-------------------------------|
 | code          | string                              | Four uppercase letters        |
 | phase         | `"lobby"`, `"question"`, `"reveal"` or `"finished"` |               |
-| players       | array of `{ id: string, name, score, answered }` | Sorted by score, high to low |
+| players       | array of `{ id: string, name, score, answered, streak }` | Sorted by score, high to low |
 | questionIndex | number                              | Starts at 0                   |
 | questionCount | number                              |                               |
 | question      | `{ text: string, choices: string[] }`, or null | Null in lobby and finished |
@@ -53,7 +59,10 @@ Players join at `/?code=ABCD`, where ABCD is the game code. The player screen fi
 | answerCounts  | array of numbers, or null           | Set only during reveal. One count per choice, in choice order. Null in every other phase |
 
 ## Rules
-- A game has five questions, kept in server/src/deck.ts.
+- A player's `streak` is how many questions in a row they have answered correctly. It starts at 0. It resets to 0 when the game moves to reveal and the player's answer was wrong or missing. Like scores, it changes only when the game moves to reveal.
+- When a correct answer makes a player's streak a multiple of 3, they also earn a 200 point bonus, added to the score at the same reveal.
+- host:kick removes the player from the game. The kicked player receives `kicked`, then their socket is closed, and everyone else receives a new `state`. Kicked players cannot rejoin, because kicking is allowed only in the lobby.
+- A game has five questions, taken from the deck named by `deckId`. Decks are kept in server/src/deck.ts.
 - Every question has exactly four choices.
 - Joining and rejoining ignore the case of the code.
 - Names are trimmed, 1 to 20 characters, and unique within a game.

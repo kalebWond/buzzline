@@ -9,6 +9,7 @@ export interface PlayerView {
   name: string;
   score: number;
   answered: boolean;
+  streak: number;
 }
 
 export interface QuestionView {
@@ -28,15 +29,30 @@ export interface GameState {
   answerCounts: number[] | null;
 }
 
+export const DECKS = [
+  { id: "classic", name: "Classic" },
+  { id: "science", name: "Science" },
+  { id: "geography", name: "Geography" },
+] as const;
+
+export type DeckId = (typeof DECKS)[number]["id"];
+
+export const DEFAULT_DECK_ID: DeckId = "classic";
+
+export const STREAK_LENGTH = 3;
+export const STREAK_BONUS = 200;
+
 export type ClientMessage =
-  | { type: "host:create" }
+  | { type: "host:create"; deckId?: DeckId }
   | { type: "player:join"; code: string; name: string }
   | { type: "player:rejoin"; code: string; playerId: string }
   | { type: "host:start" }
   | { type: "player:answer"; choice: number }
-  | { type: "host:next" };
+  | { type: "host:next" }
+  | { type: "host:kick"; playerId: string };
 
 export type ServerMessage =
   | { type: "welcome"; role: "host" | "player"; playerId: string | null; code: string }
   | { type: "state"; state: GameState }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  | { type: "kicked" };

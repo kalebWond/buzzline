@@ -64,7 +64,7 @@ export class Game {
   state(): GameState {
     const q = this.phase === "question" || this.phase === "reveal" ? this.deck[this.questionIndex] : undefined;
     const players: PlayerView[] = this.players
-      .map((p) => ({ id: p.id, name: p.name, score: p.score, answered: p.answered }))
+      .map((p) => ({ id: p.id, name: p.name, score: p.score, answered: p.answered, streak: 0 }))
       .sort((a, b) => b.score - a.score); // stable: ties keep join order
     return {
       code: this.code,
