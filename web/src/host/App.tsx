@@ -107,7 +107,7 @@ function Lobby({
   const url = joinUrl(location.origin, s.code);
   const deck = DECKS.find((d) => d.id === deckId);
   const n = s.players.length;
-  const [auto, setAuto] = useState(false);
+  const [auto, setAuto] = useState(true); // on unless the host turns it off
   return (
     <Stage id="lobby" className="host-lobby">
       <section className="join-panel card">
