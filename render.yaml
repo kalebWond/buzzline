@@ -1,0 +1,12 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# One free web service serves the web app, the API and the WebSocket.
+# Games live in memory, so this must stay a single instance.
+services:
+  - type: web
+    name: buzzline
+    runtime: node
+    plan: free
+    # region: oregon   # default; also frankfurt, ohio, virginia, singapore. Pick the one nearest your players.
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
