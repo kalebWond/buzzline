@@ -32,7 +32,7 @@ function readSaved(): { code: string; playerId: string } | null {
 }
 
 export default function PlayerApp() {
-  const { ready, state, welcome, error, send } = useGame();
+  const { ready, state, welcome, error, kicked, send } = useGame();
   const playerId = welcome?.role === "player" ? welcome.playerId : null;
   const screen = screenFor(state, playerId);
   const me = findMe(state, playerId);
@@ -55,12 +55,22 @@ export default function PlayerApp() {
     }
   }, [welcome]);
 
+  // A kicked player must not try to come back after a reload.
+  useEffect(() => {
+    if (!kicked) return;
+    try {
+      sessionStorage.removeItem(STORE);
+    } catch {
+      /* storage unavailable */
+    }
+  }, [kicked]);
+
   // Take back our place after a page reload.
   useEffect(() => {
-    if (!ready || welcome) return;
+    if (!ready || welcome || kicked) return;
     const saved = readSaved();
     if (saved) send({ type: "player:rejoin", code: saved.code, playerId: saved.playerId });
-  }, [ready, welcome, send]);
+  }, [ready, welcome, kicked, send]);
 
   // New question: forget the last choice and remember the score to show points gained.
   useEffect(() => {
@@ -79,6 +89,15 @@ export default function PlayerApp() {
   function answer(i: number) {
     setChoice(i);
     send({ type: "player:answer", choice: i });
+  }
+
+  if (kicked) {
+    return (
+      <div style={page}>
+        <h1>Removed from the game</h1>
+        <p>The host removed you from the game.</p>
+      </div>
+    );
   }
 
   if (screen === "join" || !state || !me) {
